@@ -1,0 +1,516 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+:root {
+    --bg-deep: #0f0f1a;
+    --bg-terminal: #1a1a2e;
+    --topbar-bg: #16213e;
+    --border-color: #2a2a4a;
+    --accent: #00d4ff;
+    --accent-hover: #00b4d8;
+    --text-primary: #e0e0e0;
+    --text-muted: #888;
+    --dot-red: #ff5f56;
+    --dot-yellow: #ffbd2e;
+    --dot-green: #27c93f;
+    --input-bg: #0f0f1a;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background-color: var(--bg-deep);
+    color: var(--text-primary);
+}
+
+/* === APP CONTAINER === */
+.app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* === TERMINAL WRAPPER === */
+.terminal-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--bg-terminal);
+}
+
+/* === TERMINAL CONTAINER === */
+#terminal-container {
+    flex: 1;
+    padding: 6px 4px;
+    overflow: hidden;
+}
+
+/* Xterm.js internal overrides */
+:global(.xterm) {
+    height: 100%;
+}
+
+:global(.xterm-viewport) {
+    border-radius: 0;
+}
+
+/* === COMMAND INPUT BAR === */
+.command-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--topbar-bg);
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.prompt-label {
+    font-family: Consolas, monospace;
+    font-size: 16px;
+    color: var(--accent);
+    font-weight: bold;
+    user-select: none;
+    flex-shrink: 0;
+    padding-bottom: 6px;
+}
+
+#command-input {
+    flex: 1;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    resize: none;
+
+    /* NEW FIXED HEIGHT LOGIC */
+    height: 15vh;
+    /* Always exactly 15% of window height */
+    overflow-y: auto;
+    /* Always allow scrolling if text overflows */
+    line-height: 1.4;
+
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+}
+
+/* (Keep your existing ::-webkit-scrollbar styling below this) */
+
+#command-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.12);
+}
+
+#command-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* Custom Scrollbar for WebKit (Chrome/Edge/Safari) */
+#command-input::-webkit-scrollbar {
+    width: 6px;
+}
+
+#command-input::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#command-input::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+#run-btn {
+    background: linear-gradient(135deg, #00d4ff, #0090b8);
+    color: #0f0f1a;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    flex-shrink: 0;
+    letter-spacing: 0.3px;
+}
+
+#run-btn:hover {
+    opacity: 0.88;
+}
+
+
+#run-btn:active {
+    transform: scale(0.97);
+}
+
+/* === EXPLORER PANEL === */
+.explorer-panel {
+    min-width: 15vw;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: #131323;
+    border-left: 1px solid var(--border-color);
+    overflow: hidden;
+}
+
+/* Resizer styling */
+.resizer {
+    width: 6px;
+    cursor: col-resize;
+    background: transparent;
+    transition: background-color 0.2s ease;
+    z-index: 10;
+}
+
+.resizer:hover,
+.resizer.active {
+    background: rgba(0, 212, 255, 0.2);
+    /* Subtle glow on hover/drag */
+}
+
+/* NEW: Copy Button styling */
+.copy-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    margin-left: auto;
+    /* Pushes it to the right */
+    border-radius: 4px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, background 0.2s;
+}
+
+.copy-btn:hover {
+    background: rgba(0, 212, 255, 0.1);
+    color: var(--accent);
+}
+
+.check-icon {
+    color: var(--dot-green);
+    font-weight: bold;
+}
+
+
+/* New folder inline input */
+.new-folder-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    margin: 2px 4px;
+    background: rgba(0, 212, 255, 0.06);
+    border-radius: 4px;
+}
+
+.new-folder-icon {
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.new-folder-input {
+    flex: 1;
+    background: var(--input-bg);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    padding: 3px 6px;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.12);
+}
+
+/* === EXPLORER NAV BAR (back/forward/up/pin) === */
+.explorer-nav {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    background: var(--topbar-bg);
+}
+
+.nav-spacer {
+    flex: 1;
+}
+
+.nav-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.nav-btn:hover:not(:disabled) {
+    background: rgba(0, 212, 255, 0.15);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.nav-btn:active:not(:disabled) {
+    transform: scale(0.92);
+}
+
+.nav-btn:disabled {
+    opacity: 0.25;
+    cursor: default;
+    background: transparent;
+    border-color: transparent;
+}
+
+.nav-btn svg {
+    display: block;
+}
+
+.nav-btn-icon {
+    width: 26px;
+    height: 26px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.nav-btn-icon:hover:not(:disabled) {
+    background: rgba(0, 212, 255, 0.12);
+    color: var(--accent);
+    border-color: transparent;
+}
+
+/* Pin button */
+.nav-pin-btn {
+    width: 26px;
+    height: 26px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.nav-pin-btn:hover {
+    background: rgba(0, 212, 255, 0.12);
+    color: var(--accent);
+}
+
+.nav-pin-btn.pinned {
+    color: var(--accent);
+    background: rgba(0, 212, 255, 0.15);
+    border-color: var(--accent);
+}
+
+/* === EXPLORER BREADCRUMB PATH === */
+.explorer-cwd {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: rgba(0, 212, 255, 0.04);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    min-height: 32px;
+}
+
+.breadcrumb-bar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+    cursor: default;
+}
+
+.breadcrumb-bar::-webkit-scrollbar {
+    display: none;
+}
+
+.breadcrumb-item {
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 2px 5px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    flex-shrink: 0;
+}
+
+.breadcrumb-item:hover {
+    background: rgba(0, 212, 255, 0.1);
+    color: var(--accent);
+}
+
+.breadcrumb-active {
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.breadcrumb-sep {
+    font-size: 8px;
+    color: var(--text-muted);
+    opacity: 0.5;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.cwd-edit-input {
+    flex: 1;
+    background: var(--input-bg);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.12);
+}
+
+/* === EXPLORER FILTER === */
+.explorer-filter {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.explorer-filter-input {
+    width: 100%;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 5px 9px;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.explorer-filter-input:focus {
+    border-color: var(--accent);
+}
+
+.explorer-filter-input::placeholder {
+    color: var(--text-muted);
+}
+
+.explorer-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #2a2a4a transparent;
+}
+
+.explorer-tree::-webkit-scrollbar {
+    width: 4px;
+}
+
+.explorer-tree::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.explorer-tree::-webkit-scrollbar-thumb {
+    background: #2a2a4a;
+    border-radius: 2px;
+}
+
+.explorer-loading,
+.explorer-empty {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 12px;
+    text-align: center;
+    font-style: italic;
+}
+
+
+/* === LIGHT THEME === */
+:root[data-theme="light"] {
+    --bg-deep: #f0f0f5;
+    --bg-terminal: #ffffff;
+    --topbar-bg: #e8e8f0;
+    --border-color: #d0d0da;
+    --accent: #0078d4;
+    --accent-hover: #005fa3;
+    --text-primary: #1a1a2e;
+    --text-muted: #666;
+    --input-bg: #f5f5fa;
+}
+
+/* === DROP INDICATOR === */
+.terminal-wrapper.drag-over {
+    outline: 2px dashed var(--accent);
+    outline-offset: -4px;
+}
+
+/* === TOAST CONTAINER === */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.toast {
+    background: var(--topbar-bg);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text-primary);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    pointer-events: auto;
+    animation: toastSlideIn 0.3s ease-out;
+    max-width: 320px;
+}
+
+.toast.fade-out {
+    animation: toastSlideOut 0.3s ease-in forwards;
+}
+
+@keyframes toastSlideIn {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toastSlideOut {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(40px); }
+}

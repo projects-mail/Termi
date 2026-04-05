@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(go|mod|json\\)$\")",
+      "Bash(grep -E \"\\\\.\\(svelte|ts|js\\)$\")",
+      "Bash(npm install:*)",
+      "Bash(go build:*)",
+      "Bash(npm run:*)",
+      "Bash(go run:*)"
+    ]
+  }
+}
