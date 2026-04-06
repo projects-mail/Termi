@@ -49,12 +49,17 @@ VIAddVersionKey "ProductName"     "${INFO_PRODUCTNAME}"
 ManifestDPIAware true
 
 !include "MUI.nsh"
+!include "WordFunc.nsh"
 
 !define MUI_ICON "..\icon.ico"
 !define MUI_UNICON "..\icon.ico"
 # !define MUI_WELCOMEFINISHPAGE_BITMAP "resources\leftimage.bmp" #Include this to add a bitmap on the left side of the Welcome Page. Must be a size of 164x314
 !define MUI_FINISHPAGE_NOAUTOCLOSE # Wait on the INSTFILES page so the user can take a look into the details of the installation steps
 !define MUI_ABORTWARNING # This will warn the user if they exit from the installer.
+
+# Finish page: offer to launch Termi after install
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${PRODUCT_EXECUTABLE}"
+!define MUI_FINISHPAGE_RUN_TEXT "Launch ${INFO_PRODUCTNAME}"
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
 # !insertmacro MUI_PAGE_LICENSE "resources\eula.txt" # Adds a EULA page to the installer
@@ -88,8 +93,25 @@ Section
 
     !insertmacro wails.files
 
-    CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
+    # --- Set PowerShell Execution Policy to RemoteSigned for CurrentUser ---
+    # This prevents the "running scripts is disabled" error inside Termi
+    DetailPrint "Configuring PowerShell execution policy..."
+    nsExec::ExecToLog 'powershell.exe -NoProfile -Command "Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force"'
+
+    # --- Create Start Menu shortcuts ---
+    CreateDirectory "$SMPROGRAMS\${INFO_PRODUCTNAME}"
+    CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
+    CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}\Uninstall ${INFO_PRODUCTNAME}.lnk" "$INSTDIR\uninstall.exe"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
+
+    # --- Add to PATH so 'termi' can be launched from any terminal ---
+    DetailPrint "Adding ${INFO_PRODUCTNAME} to system PATH..."
+    SetRegView 64
+    ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
+    StrCpy $1 "$0;$INSTDIR"
+    WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$1"
+    # Notify the system about environment change
+    SendMessage 0xFFFF 0x001A 0 "STR:Environment" /TIMEOUT=5000
 
     !insertmacro wails.associateFiles
     !insertmacro wails.associateCustomProtocols
@@ -104,8 +126,18 @@ Section "uninstall"
 
     RMDir /r $INSTDIR
 
-    Delete "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk"
+    # --- Remove Start Menu shortcuts ---
+    Delete "$SMPROGRAMS\${INFO_PRODUCTNAME}\${INFO_PRODUCTNAME}.lnk"
+    Delete "$SMPROGRAMS\${INFO_PRODUCTNAME}\Uninstall ${INFO_PRODUCTNAME}.lnk"
+    RMDir "$SMPROGRAMS\${INFO_PRODUCTNAME}"
     Delete "$DESKTOP\${INFO_PRODUCTNAME}.lnk"
+
+    # --- Remove from PATH ---
+    SetRegView 64
+    ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
+    ${WordReplace} $0 ";$INSTDIR" "" "+" $1
+    WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$1"
+    SendMessage 0xFFFF 0x001A 0 "STR:Environment" /TIMEOUT=5000
 
     !insertmacro wails.unassociateFiles
     !insertmacro wails.unassociateCustomProtocols

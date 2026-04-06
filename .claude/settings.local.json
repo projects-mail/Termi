@@ -6,7 +6,17 @@
       "Bash(npm install:*)",
       "Bash(go build:*)",
       "Bash(npm run:*)",
-      "Bash(go run:*)"
+      "Bash(go run:*)",
+      "Bash(wc:*)",
+      "Bash(wails --version)",
+      "Bash(where nsis:*)",
+      "Bash(wails version:*)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "Read(//c/Program Files/**)",
+      "Bash(winget --version)",
+      "Bash(winget install:*)",
+      "Bash(wails build:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files \\(x86\\)/NSIS\")"
     ]
   }
 }

@@ -112,7 +112,7 @@ func (a *App) shellCommand() (string, []string) {
 	case "WSL":
 		return "wsl.exe", nil
 	default:
-		return "powershell.exe", []string{"-NoLogo"}
+		return "powershell.exe", []string{"-NoLogo", "-ExecutionPolicy", "RemoteSigned"}
 	}
 }
 

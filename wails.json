@@ -9,5 +9,13 @@
   "author": {
     "name": "akhilalapati09",
     "email": "akhil.alapati@smartlinkhealth.com"
-  }
+  },
+  "info": {
+    "companyName": "Akhil Alapati",
+    "productName": "Termi",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright 2025 Akhil Alapati",
+    "comments": "A modern terminal application for Windows"
+  },
+  "nsisType": "multiple"
 }
