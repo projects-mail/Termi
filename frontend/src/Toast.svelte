@@ -5,6 +5,10 @@
     let toasts = [];
     let nextId = 0;
 
+    export function showToast(message) {
+        addToast(message);
+    }
+
     function addToast(message) {
         const id = nextId++;
         toasts = [...toasts, { id, message, fading: false }];

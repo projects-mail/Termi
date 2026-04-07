@@ -7,17 +7,17 @@ Termi is a desktop terminal application for Windows that combines native shell a
 ## Architecture
 
 ```
-+-------------------+       Wails IPC        +-------------------+
-|   Go Backend      | <------------------->  |  Svelte Frontend  |
-|                   |                        |                   |
-|  - PTY (ConPTY)   |   EventsEmit/EventsOn  |  - Xterm.js       |
-|  - File I/O       |   Function Bindings     |  - UI Components  |
-|  - History        |                        |  - Svelte Stores  |
-+-------------------+                        +-------------------+
++-------------------+       Wails IPC        +--------------------------------+
+|   Go Backend      | <------------------->  |  Svelte Frontend               |
+|                   |                        |                                |
+|  - Map of PTYs    |   EventsEmit/EventsOn  |  - Array of Xterm.js instances |
+|  - File I/O       |   Function Bindings    |  - Tab Bar & Explorer          |
+|  - Global History |                        |  - Svelte Stores               |
++-------------------+                        +--------------------------------+
         |                                            |
         v                                            v
    Windows OS                                   WebView2
-   (PowerShell)                             (Chromium-based)
+   (PowerShell xN)                          (Chromium-based)
 ```
 
 ## Tech Stack
@@ -63,7 +63,8 @@ Termi/
 ├── main.go                    # Wails app initialization, window config
 ├── app.go                     # Core backend: PTY, file ops, history, completions
 ├── go.mod / go.sum            # Go dependencies
-├── wails.json                 # Wails build configuration
+├── wails.json                 # Wails build configuration & app versioning
+├── build_release.ps1          # Automated NSIS compiler & code signing pipeline
 │
 ├── frontend/
 │   ├── src/
@@ -96,10 +97,10 @@ Termi/
 
 ## Data Flow
 
-### Terminal I/O
+### Terminal I/O (Multi-Tab Routed)
 ```
-Keystroke → Xterm.js onData → WriteToTerminal(data) → Go PTY Write → PowerShell
-PowerShell Output → Go PTY Read → EventsEmit("terminal-output") → Xterm.js write
+Keystroke → Active Xterm.js onData → WriteToTerminal(tabId, data) → Target Go PTY Write → PowerShell
+PowerShell Output → Target Go PTY Read → EventsEmit("terminal-output", {tabId, data}) → Target Xterm.js write
 ```
 
 ### Directory Detection
@@ -128,10 +129,11 @@ Shell prompt appears in PTY output
 ### Frontend → Go Function Calls
 | Function | Purpose |
 |---|---|
-| `StartTerminal()` | Initialize PTY with PowerShell |
-| `RestartTerminal()` | Tear down and restart PTY |
-| `WriteToTerminal(input)` | Send keystrokes to shell |
-| `ResizeTerminal(cols, rows)` | Resize PTY dimensions |
+| `StartTerminal(initialDir)` | Initialize new PTY with PowerShell, returns generated `tabId` |
+| `RestartTerminal(tabId)` | Tear down and restart specific tab's PTY |
+| `WriteToTerminal(tabId, input)` | Send keystrokes to target shell |
+| `ResizeTerminal(tabId, cols, rows)` | Resize specific PTY dimensions |
+| `GetWorkingDir(tabId)` | Synchronously fetch current directory of a tab |
 | `ListDirectory(path)` | List files in a directory |
 | `CreateDirectory(path)` | Create a new folder |
 | `OpenFileInEditor(path)` | Open file with system default app |

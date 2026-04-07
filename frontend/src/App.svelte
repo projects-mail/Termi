@@ -1,14 +1,17 @@
 <script>
-    import { onMount } from "svelte";
+import { onMount, tick } from "svelte";
     import { Terminal } from "xterm";
     import { FitAddon } from "xterm-addon-fit";
     import { SearchAddon } from "xterm-addon-search";
     import "xterm/css/xterm.css";
     import {
         StartTerminal,
+        CloseTerminal,
+        RestartTerminal,
         WriteToTerminal,
         ResizeTerminal,
         ListDirectory,
+        GetWorkingDir,
         SaveCommandHistory,
         LoadCommandHistory,
         CreateDirectory,
@@ -33,10 +36,14 @@
     import Toast from "./Toast.svelte";
     import Autocomplete from "./Autocomplete.svelte";
 
-    let terminalContainer;
-    let term;
-    let fitAddon;
-    let searchAddon;
+    // Multi-tab state
+    let tabs = [];
+    let activeTabId = null;
+    let tabCounter = 1;
+    let explorerVisible = true;
+    let searchAddon; // We might need one per tab, or just use active tab's addon
+    let toastRef;
+
     let commandInput = "";
     let commandTextarea;
 
@@ -135,94 +142,191 @@
         creatingFolder = false;
     }
 
+
+
+
+
+    async function createNewTab(focus = true) {
+        try {
+            const tabId = await StartTerminal("");
+            const term = new Terminal({
+                cursorBlink: true,
+                fontFamily: 'Consolas, "Courier New", monospace',
+                fontSize: 14,
+                theme: termTheme,
+            });
+            const fitAddon = new FitAddon();
+            const sa = new SearchAddon();
+            term.loadAddon(fitAddon);
+            term.loadAddon(sa);
+
+            const newTab = {
+                id: tabId,
+                name: `Terminal ${tabCounter++}`,
+                cwd: "",
+                term,
+                fitAddon,
+                searchAddon: sa,
+                containerRef: null
+            };
+
+            tabs = [...tabs, newTab];
+            
+            term.onData((data) => {
+                WriteToTerminal(tabId, data);
+            });
+            term.onResize(({ cols, rows }) => {
+                ResizeTerminal(tabId, cols, rows);
+            });
+            
+            term.onSelectionChange(() => {
+                const sel = term.getSelection();
+                if (sel && sel.trim().length > 0) {
+                    ClipboardSetText(sel);
+                    if (toastRef) toastRef.showToast("Copied to clipboard!");
+                }
+            });
+            
+            if (focus) {
+                await switchTab(tabId);
+            }
+            
+            // The initial cwd-change event from Go may have fired before tabs was updated.
+            // Explicitly fetch the working directory here to initialize the explorer correctly.
+            const initialCwd = await GetWorkingDir(tabId);
+            if (initialCwd) {
+                const updatedTab = tabs.find(t => t.id === tabId);
+                if (updatedTab) {
+                    updatedTab.cwd = initialCwd;
+                    if (activeTabId === tabId && explorerVisible) {
+                        cwd = initialCwd;
+                        await loadExplorer(cwd);
+                    }
+                }
+            }
+        } catch(e) {
+            console.error("Failed to create terminal tab", e);
+        }
+    }
+
+    async function switchTab(tabId) {
+        activeTabId = tabId;
+        const tab = tabs.find(t => t.id === tabId);
+        if (tab) {
+            searchAddon = tab.searchAddon;
+            
+            await tick();
+            
+            if (tab.containerRef && !tab.term.element) {
+                tab.term.open(tab.containerRef);
+            }
+            if (tab.fitAddon) {
+                tab.fitAddon.fit();
+                ResizeTerminal(tabId, tab.term.cols, tab.term.rows);
+            }
+            tab.term.focus();
+            
+            // Update Explorer
+            cwd = tab.cwd;
+            if (cwd && explorerVisible) loadExplorer(cwd);
+        }
+    }
+
+    async function closeTab(tabId, e) {
+        if(e) e.stopPropagation();
+        await CloseTerminal(tabId);
+        const idx = tabs.findIndex(t => t.id === tabId);
+        tabs = tabs.filter(t => t.id !== tabId);
+        
+        if (activeTabId === tabId) {
+            if (tabs.length > 0) {
+                switchTab(tabs[Math.max(0, idx - 1)].id);
+            } else {
+                await createNewTab();
+            }
+        }
+    }
+
     onMount(async () => {
         // Load command history
         const hist = await LoadCommandHistory();
         commandHistory.set(hist || []);
 
-        // --- TERMINAL SETUP ---
-        term = new Terminal({
-            cursorBlink: true,
-            fontFamily: 'Consolas, "Courier New", monospace',
-            fontSize: 14,
-            theme: termTheme,
-        });
-
-        fitAddon = new FitAddon();
-        searchAddon = new SearchAddon();
-        term.loadAddon(fitAddon);
-        term.loadAddon(searchAddon);
-        term.open(terminalContainer);
-        fitAddon.fit();
-
         window.addEventListener("resize", () => {
-            fitAddon.fit();
-            ResizeTerminal(term.cols, term.rows);
-        });
-
-        term.onResize(({ cols, rows }) => {
-            ResizeTerminal(cols, rows);
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (tab && tab.fitAddon) {
+                tab.fitAddon.fit();
+                ResizeTerminal(activeTabId, tab.term.cols, tab.term.rows);
+            }
         });
 
         // Pipe PTY output from Go → xterm.js
-        EventsOn("terminal-output", (data) => {
-            term.write(data);
+        EventsOn("terminal-output", (payload) => {
+            const tab = tabs.find(t => t.id === payload.tabId);
+            if (tab) {
+                tab.term.write(payload.data);
+            }
         });
 
         // Listen for cwd changes detected by Go (terminal cd)
-        EventsOn("cwd-change", async (newCwd) => {
-            // Always allow the first cwd to come through (initial load)
-            if (pinned && cwd) {
-                // When pinned and already initialized, ignore terminal cd
-                return;
-            }
-            if (newCwd !== cwd) {
-                if (!navUserAction && cwd) {
-                    navBack = [...navBack, cwd];
-                    navForward = [];
+        EventsOn("cwd-change", async (payload) => {
+            const tab = tabs.find(t => t.id === payload.tabId);
+            if (tab) {
+                tab.cwd = payload.data;
+                // If it's the active tab, synchronize explorer
+                if (tab.id === activeTabId) {
+                    if (pinned && cwd) return; // if pinned, UI ignores terminal cd
+                    
+                    if (payload.data !== cwd) {
+                        if (!navUserAction && cwd) {
+                            navBack = [...navBack, cwd];
+                            navForward = [];
+                        }
+                        navUserAction = false;
+                        cwd = payload.data;
+                    }
+                    filterText = "";
+                    if (explorerVisible) await loadExplorer(cwd);
                 }
-                navUserAction = false;
-                cwd = newCwd;
             }
-            filterText = "";
-            await loadExplorer(newCwd);
         });
-
-        // Pipe keystrokes from xterm.js → Go PTY
-        term.onData((data) => {
-            WriteToTerminal(data);
-        });
-
-        terminalContainer.addEventListener("click", () => term.focus());
 
         // --- KEYBOARD SHORTCUTS ---
         registerShortcuts({
             clearTerminal: () => {
-                WriteToTerminal("cls\r");
+                if(activeTabId) WriteToTerminal(activeTabId, "cls\r");
+            },
+            hasSelection: () => {
+                const sel = tabs.find(t=>t.id===activeTabId)?.term.getSelection();
+                return sel && sel.length > 0;
+            },
+            clearSelection: () => {
+                tabs.find(t=>t.id===activeTabId)?.term.clearSelection();
             },
             copy: () => {
-                const sel = term.getSelection();
-                if (sel) ClipboardSetText(sel);
+                const sel = tabs.find(t=>t.id===activeTabId)?.term.getSelection();
+                if (sel) {
+                    ClipboardSetText(sel);
+                    if (toastRef) toastRef.showToast("Copied to clipboard!");
+                }
             },
             paste: async () => {
                 const text = await ClipboardGetText();
-                if (text) WriteToTerminal(text);
+                if (text) if(activeTabId) WriteToTerminal(activeTabId, text);
             },
             toggleHistory: () => historyOpen.update((v) => !v),
             toggleSearch: () => searchOpen.update((v) => !v),
         });
 
-        // Start PTY
-        await StartTerminal().catch((err) =>
-            console.error("Failed to start terminal:", err),
-        );
+        // Start initial Tab
+        await createNewTab(true);
     });
 
     // --- COMMAND BAR ---
     function runCommand() {
         const cmd = commandInput.trim();
         if (!cmd) return;
-        WriteToTerminal(cmd + "\r");
+        if(activeTabId) WriteToTerminal(activeTabId, cmd + "\r");
 
         // Save to history
         SaveCommandHistory(cmd);
@@ -233,7 +337,7 @@
 
         commandInput = "";
         autocompleteVisible = false;
-        term.focus();
+        tabs.find(t=>t.id===activeTabId)?.tabs.find(t=>t.id===activeTabId)?.term.focus();
     }
 
     function handleKeydown(e) {
@@ -287,7 +391,7 @@
         // Only cd in terminal when NOT pinned
         if (!pinned) {
             navUserAction = true;
-            WriteToTerminal('cd "' + newPath + '"\r');
+            if(activeTabId) WriteToTerminal(activeTabId, 'cd "' + newPath + '"\r');
         }
 
         await loadExplorer(newPath);
@@ -309,7 +413,7 @@
 
         if (!pinned) {
             navUserAction = true;
-            WriteToTerminal('cd "' + prev + '"\r');
+            if(activeTabId) WriteToTerminal(activeTabId, 'cd "' + prev + '"\r');
         }
 
         loadExplorer(prev);
@@ -330,7 +434,7 @@
 
         if (!pinned) {
             navUserAction = true;
-            WriteToTerminal('cd "' + next + '"\r');
+            if(activeTabId) WriteToTerminal(activeTabId, 'cd "' + next + '"\r');
         }
 
         loadExplorer(next);
@@ -423,7 +527,8 @@
         if (newWidth < minWidth) newWidth = minWidth;
         if (newWidth > maxWidth) newWidth = maxWidth;
         explorerWidth = newWidth;
-        if (fitAddon) fitAddon.fit();
+        const tab = tabs.find(t => t.id === activeTabId);
+        if (tab && tab.fitAddon) tab.fitAddon.fit();
     }
 
     function stopResize() {
@@ -432,9 +537,10 @@
         window.removeEventListener("mouseup", stopResize);
         document.body.style.userSelect = "auto";
         document.body.style.cursor = "default";
-        if (fitAddon) {
-            fitAddon.fit();
-            ResizeTerminal(term.cols, term.rows);
+        const tab = tabs.find(t => t.id === activeTabId);
+        if (tab && tab.fitAddon) {
+            tab.fitAddon.fit();
+            ResizeTerminal(activeTabId, tab.term.cols, tab.term.rows);
         }
     }
 
@@ -448,7 +554,7 @@
                 label: "Copy",
                 shortcut: "Ctrl+Shift+C",
                 action: () => {
-                    const sel = term.getSelection();
+                    const sel = tabs.find(t=>t.id===activeTabId)?.term.getSelection();
                     if (sel) ClipboardSetText(sel);
                 },
             },
@@ -457,13 +563,13 @@
                 shortcut: "Ctrl+Shift+V",
                 action: async () => {
                     const text = await ClipboardGetText();
-                    if (text) WriteToTerminal(text);
+                    if (text) if(activeTabId) WriteToTerminal(activeTabId, text);
                 },
             },
             { divider: true },
             {
                 label: "Select All",
-                action: () => term.selectAll(),
+                action: () => tabs.find(t=>t.id===activeTabId)?.term.selectAll(),
             },
             {
                 label: "Clear Terminal",
@@ -484,8 +590,9 @@
             ctxMenuItems = [
                 {
                     label: "Open in Terminal",
-                    action: () =>
-                        WriteToTerminal('cd "' + entry.path + '"\r'),
+                    action: () => {
+                        if(activeTabId) WriteToTerminal(activeTabId, 'cd "' + entry.path + '"\r');
+                    }
                 },
                 {
                     label: "Copy Path",
@@ -519,7 +626,7 @@
                             .split("\\")
                             .slice(0, -1)
                             .join("\\");
-                        WriteToTerminal('cd "' + dir + '"\r');
+                        if(activeTabId) WriteToTerminal(activeTabId, 'cd "' + dir + '"\r');
                     },
                 },
                 {
@@ -598,8 +705,8 @@
         dragOver = false;
         const path = e.dataTransfer.getData("text/plain");
         if (path) {
-            WriteToTerminal('"' + path + '"');
-            term.focus();
+            if(activeTabId) WriteToTerminal(activeTabId, '"' + path + '"');
+            tabs.find(t=>t.id===activeTabId)?.term.focus();
         }
     }
 
@@ -626,12 +733,40 @@
         <!-- History panel overlay -->
         <HistoryPanel on:select={handleHistorySelect} />
 
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div
-            bind:this={terminalContainer}
-            id="terminal-container"
-            on:contextmenu={handleTerminalContext}
-        ></div>
+        <!-- TABS BAR -->
+        <div class="tabs-bar">
+            {#each tabs as t (t.id)}
+                <!-- svelte-ignore a11y-click-events-have-key-events -->
+                <!-- svelte-ignore a11y-no-static-element-interactions -->
+                <div class="tab" class:active={t.id === activeTabId} on:click={() => switchTab(t.id)}>
+                    <span class="tab-title">{t.name}</span>
+                    <button class="tab-close" on:click={(e) => closeTab(t.id, e)}>✕</button>
+                </div>
+            {/each}
+            <button class="tab-new" on:click={() => createNewTab()}>+</button>
+            <div class="tab-spacer"></div>
+            <!-- Explorer Toggle Button -->
+            <button class="sidebar-toggle" class:active={explorerVisible} on:click={() => explorerVisible = !explorerVisible} title="Toggle Explorer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="15" y1="3" x2="15" y2="21"></line>
+                </svg>
+            </button>
+        </div>
+
+        <!-- TERMINAL CONTAINERS -->
+        <div class="terminals-container">
+            {#each tabs as t (t.id)}
+                <!-- svelte-ignore a11y-no-static-element-interactions -->
+                <div 
+                    class="terminal-instance" 
+                    class:active={t.id === activeTabId} 
+                    bind:this={t.containerRef}
+                    on:contextmenu={(e) => handleTerminalContext(e)}
+                    on:click={() => t.term.focus()}
+                ></div>
+            {/each}
+        </div>
 
         <div class="command-bar" style="position: relative;">
             <Autocomplete
@@ -656,14 +791,17 @@
     </div>
 
     <!-- ===== RESIZER ===== -->
+    {#if explorerVisible}
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div
         class="resizer"
         class:active={isResizing}
         on:mousedown={startResize}
     ></div>
+    {/if}
 
     <!-- ===== FILE EXPLORER PANEL ===== -->
+    {#if explorerVisible}
     <div class="explorer-panel" style="width: {explorerWidth}px;">
         <!-- Navigation bar: new folder / back / forward / up / pin -->
         <div class="explorer-nav">
@@ -832,6 +970,7 @@
             {/if}
         </div>
     </div>
+    {/if}
 </div>
 
 <!-- Global overlays -->
@@ -841,4 +980,4 @@
     y={ctxMenuY}
     items={ctxMenuItems}
 />
-<Toast />
+<Toast bind:this={toastRef} />

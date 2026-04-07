@@ -6,6 +6,10 @@ export function ClearCommandHistory() {
   return window['go']['main']['App']['ClearCommandHistory']();
 }
 
+export function CloseTerminal(arg1) {
+  return window['go']['main']['App']['CloseTerminal'](arg1);
+}
+
 export function CreateDirectory(arg1) {
   return window['go']['main']['App']['CreateDirectory'](arg1);
 }
@@ -22,8 +26,8 @@ export function GetCompletions(arg1, arg2) {
   return window['go']['main']['App']['GetCompletions'](arg1, arg2);
 }
 
-export function GetWorkingDir() {
-  return window['go']['main']['App']['GetWorkingDir']();
+export function GetWorkingDir(arg1) {
+  return window['go']['main']['App']['GetWorkingDir'](arg1);
 }
 
 export function ListDirectory(arg1) {
@@ -46,12 +50,12 @@ export function RenameFile(arg1, arg2) {
   return window['go']['main']['App']['RenameFile'](arg1, arg2);
 }
 
-export function ResizeTerminal(arg1, arg2) {
-  return window['go']['main']['App']['ResizeTerminal'](arg1, arg2);
+export function ResizeTerminal(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ResizeTerminal'](arg1, arg2, arg3);
 }
 
-export function RestartTerminal() {
-  return window['go']['main']['App']['RestartTerminal']();
+export function RestartTerminal(arg1) {
+  return window['go']['main']['App']['RestartTerminal'](arg1);
 }
 
 export function SaveCommandHistory(arg1) {
@@ -62,10 +66,10 @@ export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
-export function StartTerminal() {
-  return window['go']['main']['App']['StartTerminal']();
+export function StartTerminal(arg1) {
+  return window['go']['main']['App']['StartTerminal'](arg1);
 }
 
-export function WriteToTerminal(arg1) {
-  return window['go']['main']['App']['WriteToTerminal'](arg1);
+export function WriteToTerminal(arg1, arg2) {
+  return window['go']['main']['App']['WriteToTerminal'](arg1, arg2);
 }

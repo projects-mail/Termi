@@ -16,7 +16,7 @@
 
 ---
 
-Termi replaces the classic Windows Command Prompt with a sleek, modern interface. It features an integrated file explorer, breadcrumb navigation, command history, terminal search, auto-complete, and more.
+Termi replaces the classic Windows Command Prompt with a sleek, modern interface. It features **multi-tab support**, an integrated file explorer, breadcrumb navigation, command history, terminal search, auto-complete, and more.
 
 ## Download & Run
 
@@ -46,25 +46,32 @@ wails build
 
 The compiled `termi.exe` is in `build/bin/`. Run it directly.
 
-### Creating a Release
+### Creating a Release (Installers)
 
-If you want to distribute Termi to others:
+If you want to distribute Termi to others with an official `.exe` Windows Installer:
 
+1. **Install NSIS Compiler**: Wails generates installers using NSIS. You must install it first: `scoop install nsis` (or download it manually).
+2. **Execute Automated Build Pipeline**: Run the included PowerShell pipeline script.
 ```powershell
-# Build the production executable
-wails build
+.\build_release.ps1
+```
+This script will:
+- Read your exact version configuration from `wails.json`.
+- Spin up the Wails NSIS installer-compiler.
+- Generate and auto-rename your binaries dynamically into `build/bin/` (e.g. `Termi-v1.0.0.exe` and `Termi-v1.0.0-setup.exe`).
 
-# The output is a single portable file:
-# build/bin/termi.exe
+### Windows SmartScreen ("Safe to Run")
+Like all Windows applications downloaded from the web, end-users will be presented with a blue **"Windows protected your PC"** popup natively. To bypass this, Windows **strictly requires** you to physically cryptographically sign the `Termi-v1.0.0-setup.exe` executable using a purchased **Authenticode EV (Extended Validation) Code Signing Certificate** (from authorities like DigiCert, Sectigo, etc.).
+
+Once you purchase a certificate, you can securely sign the installer using the Windows SDK:
+```powershell
+signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f mycert.pfx /p password build/bin/Termi-v1.0.0-setup.exe
 ```
 
-Share `termi.exe` — it's fully self-contained. No runtime, no DLLs, no config files needed. Everything (frontend, icons, assets) is embedded in the binary.
-
-To create a GitHub Release:
+To easily distribute via GitHub:
 1. Tag your version: `git tag v1.0.0 && git push --tags`
 2. Go to your repo > Releases > Draft a new release
-3. Upload `build/bin/termi.exe`
-4. Publish
+3. Upload `build/bin/Termi-v1.0.0-setup.exe` and publish.
 
 ### Development
 
@@ -82,9 +89,13 @@ Termi runs PowerShell via Windows ConPTY. Everything you can do in a normal term
 
 | Action | How |
 |---|---|
+| Open new tab | Click **+** in the tab bar (or just double-click empty space) |
+| Close tab | Click **✕** on the tab |
+| Switch tabs | Click the tab title |
 | Run a command | Type in the bottom command bar, press **Enter** |
 | Multi-line input | **Shift+Enter** in the command bar |
-| Copy selection | **Ctrl+Shift+C** or right-click > Copy |
+| Copy selection | **Ctrl+C** (when text is selected), or Right-click > Copy |
+| Auto-Copy | Highlight any text with your mouse inside the terminal to instantly extract it via **Copy-on-Select** |
 | Paste | **Ctrl+Shift+V** or right-click > Paste |
 | Clear screen | **Ctrl+L** |
 | Search output | **Ctrl+F**, then Enter/Shift+Enter to navigate matches |
@@ -154,7 +165,8 @@ When a command runs for longer than 10 seconds, a toast notification appears in 
 | **Ctrl+F** | Search in terminal output |
 | **Ctrl+K** | Toggle command history panel |
 | **Ctrl+L** | Clear terminal |
-| **Ctrl+Shift+C** | Copy selected text |
+| **Ctrl+C** | Interrupt running process (SIGINT) *OR* Copy if text is currently highlighted |
+| **Ctrl+Shift+C** | Force copy selected text |
 | **Ctrl+Shift+V** | Paste from clipboard |
 | **Enter** | Run command / Next search match |
 | **Shift+Enter** | New line in command bar / Previous search match |

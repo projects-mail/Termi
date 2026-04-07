@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function ClearCommandHistory():Promise<void>;
 
+export function CloseTerminal(arg1:string):Promise<void>;
+
 export function CreateDirectory(arg1:string):Promise<void>;
 
 export function DeleteDirectory(arg1:string):Promise<void>;
@@ -12,7 +14,7 @@ export function DeleteFile(arg1:string):Promise<void>;
 
 export function GetCompletions(arg1:string,arg2:string):Promise<Array<string>>;
 
-export function GetWorkingDir():Promise<string>;
+export function GetWorkingDir(arg1:string):Promise<string>;
 
 export function ListDirectory(arg1:string):Promise<Array<main.FileEntry>>;
 
@@ -24,14 +26,14 @@ export function OpenFileInEditor(arg1:string):Promise<void>;
 
 export function RenameFile(arg1:string,arg2:string):Promise<void>;
 
-export function ResizeTerminal(arg1:number,arg2:number):Promise<void>;
+export function ResizeTerminal(arg1:string,arg2:number,arg3:number):Promise<void>;
 
-export function RestartTerminal():Promise<void>;
+export function RestartTerminal(arg1:string):Promise<string>;
 
 export function SaveCommandHistory(arg1:string):Promise<void>;
 
 export function SaveSettings(arg1:main.Settings):Promise<void>;
 
-export function StartTerminal():Promise<void>;
+export function StartTerminal(arg1:string):Promise<string>;
 
-export function WriteToTerminal(arg1:string):Promise<void>;
+export function WriteToTerminal(arg1:string,arg2:string):Promise<void>;

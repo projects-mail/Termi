@@ -5,6 +5,8 @@
  * @param {Object} handlers
  * @param {Function} handlers.clearTerminal
  * @param {Function} handlers.copy
+ * @param {Function} handlers.hasSelection
+ * @param {Function} handlers.clearSelection
  * @param {Function} handlers.paste
  * @param {Function} handlers.toggleHistory
  * @param {Function} handlers.toggleSearch
@@ -25,6 +27,7 @@ export function registerShortcuts(handlers) {
             // Ctrl+Shift+C — Copy selection
             if (ctrl && e.shiftKey && e.key.toLowerCase() === "c") {
                 e.preventDefault();
+                e.stopPropagation();
                 handlers.copy();
                 return;
             }
